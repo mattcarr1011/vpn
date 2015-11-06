@@ -3,6 +3,9 @@ $(document).ready(function(){
  getServers();
 });
 
+var SERVER="https://192.168.0.98/";
+
+
 function getVPNStatus() {
   $.get("https://nordvpn.com/api/vpn/check/full", function( data ) {
     $("#vpn-status").html(data['status']);
