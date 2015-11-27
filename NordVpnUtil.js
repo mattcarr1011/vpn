@@ -1,23 +1,47 @@
 $(document).ready(function(){
  getVPNStatus();
  getServers();
+ 
+ $("#search_text").on('input', function () {
+   filterServers($("#search_text").val());
+ });
 });
 
 
 var SERVER="https://192.168.0.98/";
-
+function filterServers(searchTxt) {
+  //get all buttons
+  //clear the list group
+  //if the button's search mattches then showit
+  var re = new RegExp(searchTxt, "i");
+  $(".vpn_button").each(function(index) {
+    if (re.test($(this).text())) {
+		$(this).show();
+    }
+    else {
+      $(this).hide();
+    }
+  });
+  
+}
 function getVPNStatus() {
   $.get("https://nordvpn.com/api/vpn/check/full", function( data ) {
+    if (data['status'] == "Unprotected") {
+      $("#vpn-status").addClass("label-danger")
+    }
+    else {
+      $("#vpn-status").addClass("label-success")
+    }
     $("#vpn-status").html(data['status']);
     $("#vpn-ip").html(data['ip']);
-    $("#vpn-country").html(data['country'] + "<span id='vpn-country-flag'></span>");
-    getCountryFlag(data['code']);
+    $("#vpn-country").html(data['country'] );
+    $("#vpn-country-flag").html(getCountryFlag(data['code']));
   }, "json");
 }
 
 function getCountryFlag(countryCode) {
-  var flagSrc = "http://www.geonames.org/flags/x/" + countryCode.toLowerCase() + ".gif"; 
-  return "<span id=\"vpn-country-flag\"><img width='51' height='25' src=\"" + flagSrc + "\" alt=\"flag.gid\"> </span>";
+  var flagSrc = "http://geotree.geonames.org/img/flags18/" + countryCode.toUpperCase() + ".png"; 
+  return "<img src=\"" + flagSrc + "\" alt=\"flag.png\">";
 }
 
 function getOpenVpnStatus() {
@@ -32,8 +56,22 @@ function startVpnSession(configFile) {
 }
 
 function getServers() {
-  $.get("https://nordvpn.com/api/server", function (data ) {
+  $.get("https://nordvpn.com/api/server", function ( data ) {
     var servers = "";
+    data.sort(function(a, b) {
+      var aNum = parseInt(a['name'].match("[0-9]+"));
+      var bNum = parseInt(b['name'].match("[0-9]+"));
+      
+      if (a['country'] == b['country'] && aNum==bNum) {
+        return 0;
+      }
+      if (a['country'] == b['country']) {
+        if (aNum < bNum) {
+        }
+			return aNum < bNum ? -1 : 1;        
+      }
+      return a['country'] < b['country'] ? -1 : 1;
+    });
     for (var i = 0; i<data.length; i++) {
       servers += buildServer(data[i]);
     }
@@ -43,12 +81,29 @@ function getServers() {
 
 function buildServer(server) {
   var serverStr;
-  serverStr ="<tr><td>" + server['name'] + getCountryFlag(server['flag']) + "</td>" ;
-  serverStr += "<td>" + isTorrent(server['search_keywords']) + "</td>";
-  serverStr += "<td>" + getProgressBar(server['load']) + "</td>";
-  serverStr += "</tr>";
+  var listClass;
+  if (server['load'] < 15) {
+    listClass = "list-group-item-success";
+  }
+  else if (server['load']>=15 && server['load'] <=30) {
+    listClass = "list-group-item-warning";
+  }
+  else {
+    listClass = "list-group-item-danger";
+  }
+  serverStr = "<button type=\"button\" class=\"list-group-item vpn_button " + listClass + "\"> " + server['name'];
+  serverStr += getSearchKeywords(server['search_keywords']);
+  serverStr += "<span class=\"badge\">" + getCountryFlag(server['flag']) + "</span></button>";
   return serverStr;
   
+}
+function getSearchKeywords(search_keywords) {
+  var keywordStr = "<span class='keywords hidden-xs hidden-sm'>";
+  for (var i=0; i<search_keywords.length; i++) {
+    keywordStr += "<span class='label label-info'>" + search_keywords[i] + "</span>";
+  }
+  keywordStr += "</span>";
+  return keywordStr;
 }
 function getProgressBar(progInt) {
   var style="";
@@ -73,3 +128,4 @@ function isTorrent(keywords) {
   }
    
   return false;
+}
